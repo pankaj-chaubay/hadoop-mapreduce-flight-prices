@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install pandas pytest
+      - name: Tests
+        run: pytest -q
+      - name: Pipe test, like Hadoop Streaming
+        run: |
+          python scripts/make_sample.py /tmp/sample.csv --rows 5000
+          python mapreduce/mapper.py < /tmp/sample.csv | sort | python mapreduce/reducer.py --final > /tmp/pipe.tsv
+          python scripts/local_run.py /tmp/sample.csv --mappers 4 --reducers 3 --out /tmp/local.tsv
+          diff <(sort /tmp/pipe.tsv) <(tail -n +2 /tmp/local.tsv | sort)
